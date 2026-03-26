@@ -10,4 +10,5 @@ nav_order: 1
 [Overall Approach](2_overall_approach.md)\
 [Individual Classes](3_individual_classes.md)\
 [Overarching Interactions](4_overarching_interactions.md)\
-[Thermal Model](5_thermal_model.md)
+[Thermal Model](5_thermal_model.md)\
+[Low-level design (LLD)](../../kavia-docs/CodeWiki/Architecture/slide-lld.md)
