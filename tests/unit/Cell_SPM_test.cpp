@@ -264,6 +264,71 @@ bool test_spme_is_opt_in()
   return true;
 }
 
+bool test_spme_parameter_bundle_initialises_electrolyte_state()
+{
+  Cell_SPM c1;
+
+  slide::param::SPMeParam params = c1.getSPMeParameters();
+  params.enabled = true;
+  params.c_elec = 1234.5;
+  params.c_elec_init = 1234.5;
+  params.ce_deviation_init = { -10.0, 0.0, 20.0 };
+  params.electrolyte_diffusion = 3.1e-10;
+  params.coupling = 4.0;
+
+  c1.setSPMeParameters(params);
+
+  assert(c1.isElectrolyteGradientModelEnabled());
+
+  const auto stored = c1.getSPMeParameters();
+  assert(EQ(stored.enabled, params.enabled));
+  assert(NEAR(stored.c_elec, params.c_elec));
+  assert(NEAR(stored.electrolyte_diffusion, params.electrolyte_diffusion));
+  assert(NEAR(stored.coupling, params.coupling));
+
+  const auto ce = c1.getElectrolyteConcentrationProfile();
+  const auto ce_dev = c1.getElectrolyteConcentrationDeviationProfile();
+  for (size_t i = 0; i < ce.size(); i++) {
+    assert(NEAR(ce_dev[i], params.ce_deviation_init[i]));
+    assert(NEAR(ce[i], params.c_elec + params.ce_deviation_init[i]));
+  }
+
+  const auto diagnostics = c1.getElectrolyteDiagnosticVoltages();
+  assert(NEAR(diagnostics[0], 30.0));
+  assert(NEAR(diagnostics[1], 10.0 / 3.0));
+  assert(NEAR(diagnostics[2], (10.0 / 3.0) / params.c_elec));
+
+  return true;
+}
+
+bool test_spme_disabled_step_keeps_electrolyte_profile_constant()
+{
+  Cell_SPM c1;
+  c1.setCurrent(8.0);
+
+  const auto voltage_before = c1.V();
+  const auto ce_before = c1.getElectrolyteConcentrationProfile();
+  const auto ce_dev_before = c1.getElectrolyteConcentrationDeviationProfile();
+  const auto diagnostics_before = c1.getElectrolyteDiagnosticVoltages();
+
+  c1.timeStep_CC(1.0, 5);
+
+  const auto ce_after = c1.getElectrolyteConcentrationProfile();
+  const auto ce_dev_after = c1.getElectrolyteConcentrationDeviationProfile();
+  const auto diagnostics_after = c1.getElectrolyteDiagnosticVoltages();
+
+  for (size_t i = 0; i < ce_before.size(); i++) {
+    assert(NEAR(ce_before[i], ce_after[i], 1e-12));
+    assert(NEAR(ce_dev_before[i], ce_dev_after[i], 1e-12));
+    assert(NEAR(diagnostics_before[i], diagnostics_after[i], 1e-12));
+  }
+
+  assert(!c1.isElectrolyteGradientModelEnabled());
+  assert(NEAR(voltage_before, 3.68136, 0.05));
+
+  return true;
+}
+
 bool test_spme_updates_electrolyte_profile_when_enabled()
 {
   Cell_SPM c1;
@@ -284,6 +349,66 @@ bool test_spme_updates_electrolyte_profile_when_enabled()
   return true;
 }
 
+bool test_spme_enabled_step_updates_diagnostics()
+{
+  Cell_SPM c1;
+  c1.enableElectrolyteGradientModel(true);
+  c1.setElectrolyteGradientParameters(2.8e-10, 8.0);
+  c1.setCurrent(10.0);
+
+  c1.timeStep_CC(1.0, 6);
+
+  const auto ce = c1.getElectrolyteConcentrationProfile();
+  const auto ce_dev = c1.getElectrolyteConcentrationDeviationProfile();
+  const auto diagnostics = c1.getElectrolyteDiagnosticVoltages();
+
+  bool has_nonzero_deviation = false;
+  for (size_t i = 0; i < ce.size(); i++) {
+    has_nonzero_deviation = has_nonzero_deviation || !NEAR(ce_dev[i], 0.0, 1e-12);
+    assert(NEAR(ce[i], 1000.0 + ce_dev[i], 1e-9));
+  }
+
+  assert(has_nonzero_deviation);
+  assert(diagnostics[0] > 0.0);
+  assert(std::abs(diagnostics[1]) > 0.0);
+  assert(std::abs(diagnostics[2]) > 0.0);
+
+  return true;
+}
+
+bool test_spme_high_rate_diverges_from_baseline_spm()
+{
+  Cell_SPM baseline;
+  Cell_SPM spme;
+
+  spme.enableElectrolyteGradientModel(true);
+  spme.setElectrolyteGradientParameters(2.8e-10, 12.0);
+
+  baseline.setCurrent(16.0);
+  spme.setCurrent(16.0);
+
+  baseline.timeStep_CC(1.0, 10);
+  spme.timeStep_CC(1.0, 10);
+
+  const auto baseline_ce = baseline.getElectrolyteConcentrationDeviationProfile();
+  const auto spme_ce = spme.getElectrolyteConcentrationDeviationProfile();
+  const auto spme_diag = spme.getElectrolyteDiagnosticVoltages();
+
+  for (const auto value : baseline_ce)
+    assert(NEAR(value, 0.0, 1e-12));
+
+  bool any_spme_change = false;
+  for (const auto value : spme_ce)
+    any_spme_change = any_spme_change || !NEAR(value, 0.0, 1e-12);
+
+  assert(any_spme_change);
+  assert(spme_diag[0] > 0.0);
+  assert(!NEAR(spme.V(), baseline.V(), 1e-8));
+  assert(NEAR(baseline.SOC(), spme.SOC(), 1e-12));
+
+  return true;
+}
+
 int test_all_Cell_SPM()
 {
   //!< calls all test-functions
@@ -293,7 +418,11 @@ int test_all_Cell_SPM()
   if (!TEST(test_setStates_SPM, "test_setStates_SPM")) return 4;
   if (!TEST(test_timeStep_CC_SPM, "test_timeStep_CC_SPM")) return 5;
   if (!TEST(test_spme_is_opt_in, "test_spme_is_opt_in")) return 6;
-  if (!TEST(test_spme_updates_electrolyte_profile_when_enabled, "test_spme_updates_electrolyte_profile_when_enabled")) return 7;
+  if (!TEST(test_spme_parameter_bundle_initialises_electrolyte_state, "test_spme_parameter_bundle_initialises_electrolyte_state")) return 7;
+  if (!TEST(test_spme_disabled_step_keeps_electrolyte_profile_constant, "test_spme_disabled_step_keeps_electrolyte_profile_constant")) return 8;
+  if (!TEST(test_spme_updates_electrolyte_profile_when_enabled, "test_spme_updates_electrolyte_profile_when_enabled")) return 9;
+  if (!TEST(test_spme_enabled_step_updates_diagnostics, "test_spme_enabled_step_updates_diagnostics")) return 10;
+  if (!TEST(test_spme_high_rate_diverges_from_baseline_spm, "test_spme_high_rate_diverges_from_baseline_spm")) return 11;
 
   return 0;
 }
