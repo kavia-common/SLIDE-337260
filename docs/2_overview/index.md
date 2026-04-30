@@ -10,4 +10,5 @@ nav_order: 1
 [Goal](2_goal.md) \
 [Mathematics](3_mathematics.md) \
 [MATLAB setup](4_matlab_setup.md) \
-[C++ code](5_cpp_code.md)
+[C++ code](5_cpp_code.md) \
+[Architecture](6_architecture.md)

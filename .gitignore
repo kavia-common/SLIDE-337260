@@ -20,3 +20,4 @@ build/*
 bin/*
 *.pyc
 *.asv
+.file_activity_report.json
