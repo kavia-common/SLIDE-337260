@@ -10,7 +10,6 @@
 #include "cell_data.hpp"
 #include "../../settings/enum_definitions.hpp"
 #include "../../utility/free_functions.hpp"
-#include "../../cells/Cell_SPM/Cell_SPM.hpp"
 
 #include <string>
 #include <vector>
@@ -19,10 +18,19 @@
 #include <cstdlib>
 #include <array>
 #include <span>
+#include <concepts>
 #include <variant>
 #include <type_traits>
 
 namespace slide {
+
+template <typename Cell_t>
+concept SpmeWritableCell = requires(Cell_t &cell, const Cell_t &const_cell) {
+  { const_cell.isElectrolyteGradientModelEnabled() } -> std::convertible_to<bool>;
+  { const_cell.getElectrolyteConcentrationProfile() };
+  { const_cell.getElectrolyteConcentrationDeviationProfile() };
+  { const_cell.getElectrolyteDiagnosticVoltages() };
+};
 
 inline void writeData(std::ofstream &file, std::span<Histogram<>> histograms)
 {
@@ -35,11 +43,13 @@ void writeCellDataHeader(std::ofstream &file, const Cell_t &cell)
 {
   file << "I [A],V [V],SOC [-],T [K],time [s],Ah [Ah],Wh [Wh]";
 
-  if constexpr (std::is_base_of_v<Cell_SPM, std::remove_cvref_t<Cell_t>>) {
+  if constexpr (SpmeWritableCell<std::remove_cvref_t<Cell_t>>) {
+    constexpr auto electrolyte_state_count = std::tuple_size_v<decltype(cell.getElectrolyteConcentrationProfile())>;
+
     file << ",SPMe enabled [-]";
-    for (size_t i = 0; i < State_SPM::nce; i++)
+    for (size_t i = 0; i < electrolyte_state_count; i++)
       file << ",c_e_" << i << " [mol m-3]";
-    for (size_t i = 0; i < State_SPM::nce; i++)
+    for (size_t i = 0; i < electrolyte_state_count; i++)
       file << ",dc_e_" << i << " [mol m-3]";
 
     file << ",electrolyte concentration span [mol m-3]"
@@ -59,7 +69,7 @@ void writeCellDataRow(std::ofstream &file, Cell_t &cell, const std::span<double>
     file << row[i];
   }
 
-  if constexpr (std::is_base_of_v<Cell_SPM, std::remove_cvref_t<Cell_t>>) {
+  if constexpr (SpmeWritableCell<std::remove_cvref_t<Cell_t>>) {
     file << ',' << (cell.isElectrolyteGradientModelEnabled() ? 1 : 0);
 
     const auto ce = cell.getElectrolyteConcentrationProfile();
