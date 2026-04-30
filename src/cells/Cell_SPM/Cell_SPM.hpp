@@ -185,7 +185,7 @@ public:
   param::SPMeParam getSPMeParameters() const;
 
   //!< getters
-  double T() noexcept override { return st.T(); }   //!< returns the uniform battery temperature in [K]
+  double T() noexcept { return st.T(); }   //!< returns the uniform battery temperature in [K]
   double getTenv() const noexcept { return T_env; } //!< get the environmental temperature [K]
 
   Status setCurrent(double Inew, bool checkV = true, bool print = true) override;
@@ -296,12 +296,12 @@ public:
 
   //!< --- slide-pack functions --- //
 
-  void getStates(getStates_t s) override { s.insert(s.end(), st.begin(), st.end()); } //!< returns the states of the cell collectively.
+  void getStates(StorageUnit::getStates_t s) override { s.insert(s.end(), st.begin(), st.end()); } //!< returns the states of the cell collectively.
   std::span<double> viewStates() override { return std::span<double>(st.begin(), st.end()); }
   double getOCV() override;
-  Status setStates(setStates_t sSpan, bool checkV, bool print) override;
+  Status setStates(StorageUnit::setStates_t sSpan, bool checkV, bool print) override;
   bool validStates(bool print = true) override;
-  inline double SOC() override { return st.SOC(); }
+  inline double SOC() { return st.SOC(); }
   void timeStep_CC(double dt, int steps = 1) override;
 
   Cell_SPM *copy() override { return new Cell_SPM(*this); }

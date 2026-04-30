@@ -309,9 +309,6 @@ void Cell_SPM::setCharacterisationParam(double Dp, double Dn, double kpi, double
   overwriteCharacterisationStates(Dp, Dn, r);
 }
 
-void Cell_SPM::setSPMeParameters(const param::SPMeParam &spme_param);
-param::SPMeParam Cell_SPM::getSPMeParameters() const;
-
 //!< void Cell_SPM::setRamping(double Istep, double tstep)
 //!< {
 //!< 	/*

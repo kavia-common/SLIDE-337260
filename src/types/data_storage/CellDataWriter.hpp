@@ -35,7 +35,7 @@ void writeCellDataHeader(std::ofstream &file, const Cell_t &cell)
 {
   file << "I [A],V [V],SOC [-],T [K],time [s],Ah [Ah],Wh [Wh]";
 
-  if constexpr (std::is_same_v<std::remove_cvref_t<Cell_t>, Cell_SPM>) {
+  if constexpr (std::is_base_of_v<Cell_SPM, std::remove_cvref_t<Cell_t>>) {
     file << ",SPMe enabled [-]";
     for (size_t i = 0; i < State_SPM::nce; i++)
       file << ",c_e_" << i << " [mol m-3]";
@@ -59,7 +59,7 @@ void writeCellDataRow(std::ofstream &file, Cell_t &cell, const std::span<double>
     file << row[i];
   }
 
-  if constexpr (std::is_same_v<std::remove_cvref_t<Cell_t>, Cell_SPM>) {
+  if constexpr (std::is_base_of_v<Cell_SPM, std::remove_cvref_t<Cell_t>>) {
     file << ',' << (cell.isElectrolyteGradientModelEnabled() ? 1 : 0);
 
     const auto ce = cell.getElectrolyteConcentrationProfile();
