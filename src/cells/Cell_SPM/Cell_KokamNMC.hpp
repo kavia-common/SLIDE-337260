@@ -59,7 +59,7 @@ inline Cell_KokamNMC::Cell_KokamNMC(Model_SPM *MM, int verbosei)
   //!< maximum concentrations
   Cmaxpos = 51385; //!< value for NMC
   Cmaxneg = 30555; //!< value for C
-  C_elec = 1000;   //!< standard concentration of 1 molar
+  applySPMeParameters(param::def::SPMeParam_Kokam);
 
   //!< constants
   n = 1;

@@ -13,6 +13,7 @@
 #include "DEG_ID.hpp"
 #include "Geometry_SPM.hpp"
 #include "param_default.hpp"
+#include "SPMeparam.hpp"
 
 #include "PLparam.hpp"
 #include "OCVparam.hpp"

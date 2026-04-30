@@ -333,6 +333,7 @@ Cell_SPM::Cell_SPM() : Cell() //!< Default constructor
   ID = "Cell_SPM";
 
   OCV_curves = OCVcurves::makeOCVcurves(cellType::KokamNMC);
+  applySPMeParameters(param::def::SPMeParam_default);
 
   setCapacity(16); //!< Parameters are given for 16 Ah high-power, prismatic KokamNMC cell. (SLPB78205130H)
 
@@ -377,6 +378,17 @@ Cell_SPM::Cell_SPM() : Cell() //!< Default constructor
   cellData.initialise(*this);
 }
 
+void Cell_SPM::applySPMeParameters(const param::SPMeParam &spme_param)
+{
+  spme_config = spme_param;
+  C_elec = spme_param.c_elec;
+
+  for (size_t i = 0; i < State_SPM::nce; i++)
+    st.ce(i) = spme_param.ce_deviation_init[i];
+
+  Vcell_valid = false;
+}
+
 Status Cell_SPM::setStates(setStates_t s, bool checkV, bool print)
 {
   /*
@@ -418,12 +430,25 @@ void Cell_SPM::setElectrolyteGradientParameters(double electrolyte_diffusion, do
 {
   spme_config.electrolyte_diffusion = electrolyte_diffusion;
   spme_config.coupling = coupling;
+  Vcell_valid = false;
 }
 
 // PUBLIC_INTERFACE
 std::array<double, State_SPM::nce> Cell_SPM::getElectrolyteConcentrationProfile() const
 {
   return calcElectrolyteConcentration();
+}
+
+// PUBLIC_INTERFACE
+void Cell_SPM::setSPMeParameters(const param::SPMeParam &spme_param)
+{
+  applySPMeParameters(spme_param);
+}
+
+// PUBLIC_INTERFACE
+param::SPMeParam Cell_SPM::getSPMeParameters() const
+{
+  return spme_config;
 }
 
 bool Cell_SPM::validStates(bool print)
