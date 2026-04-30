@@ -17,6 +17,35 @@
 
 namespace slide::benchmarks {
 
+inline void write_spme_benchmark_header(std::ofstream &file)
+{
+  file << "time [s],V [V],SOC [-],T [K],time throughput [s],Ah throughput [Ah],Wh throughput [Wh],OCV [V],"
+       << "SPMe enabled [-],c_e_0 [mol m-3],c_e_1 [mol m-3],c_e_2 [mol m-3],"
+       << "dc_e_0 [mol m-3],dc_e_1 [mol m-3],dc_e_2 [mol m-3],"
+       << "electrolyte concentration span [mol m-3],electrolyte concentration avg deviation [mol m-3],electrolyte exchange factor deviation [-]\n";
+}
+
+inline void write_spme_benchmark_row(std::ofstream &file, Cell_SPM &c, double t_now)
+{
+  const auto ce = c.getElectrolyteConcentrationProfile();
+  const auto ce_dev = c.getElectrolyteConcentrationDeviationProfile();
+  const auto diagnostics = c.getElectrolyteDiagnosticVoltages();
+
+  file << t_now << ',' << c.V() << ',' << c.SOC() << ',' << c.T() << ','
+       << c.getThroughputs().time() << ',' << c.getThroughputs().Ah() << ','
+       << c.getThroughputs().Wh() << ',' << c.getOCV() << ','
+       << (c.isElectrolyteGradientModelEnabled() ? 1 : 0);
+
+  for (const auto value : ce)
+    file << ',' << value;
+  for (const auto value : ce_dev)
+    file << ',' << value;
+  for (const auto value : diagnostics)
+    file << ',' << value;
+
+  file << '\n';
+}
+
 inline void run_Cell_SPM_1(double Crate)
 {
   std::string ID = "PyBAMM_1_CC_Crate"; // + std::to_string(Crate) + '_'
@@ -43,11 +72,13 @@ inline void run_Cell_SPM_1(double Crate)
   cyc.writeData();
 }
 
-
-inline void run_Cell_SPM_2(double Crate)
+inline void run_Cell_SPM_2(double Crate, bool enable_spme = false)
 {
-  std::string ID = "PyBAMM_2_CC_Crate_Cell_SPM_cellData"; // + std::to_string(Crate) + '_'
+  std::string ID = enable_spme ? "PyBAMM_2_CC_Crate_Cell_SPM_cellData_spme" : "PyBAMM_2_CC_Crate_Cell_SPM_cellData";
   auto c = Cell_SPM();
+
+  if (enable_spme)
+    c.enableElectrolyteGradientModel(true);
 
   const auto Idisch = 1.0; // Crate * c.Cap();
 
@@ -66,12 +97,10 @@ inline void run_Cell_SPM_2(double Crate)
   Clock clk;
 
   std::ofstream file{ PathVar::results / (ID + ".csv"), std::ios::out };
+  write_spme_benchmark_header(file);
 
-  file << "\n\n\n";
   while (t_now <= T_end && c.V() > 2.7) {
-    file << t_now << ',' << c.V() << ',' << c.SOC() << ',' << c.T() << ','
-         << c.getThroughputs().time() << ',' << c.getThroughputs().Ah() << ','
-         << c.getThroughputs().Wh() << ',' << c.getOCV() << "\n";
+    write_spme_benchmark_row(file, c, t_now);
 
     c.timeStep_CC(dt, 2);
 
@@ -82,6 +111,11 @@ inline void run_Cell_SPM_2(double Crate)
   std::cout << "Vafter: " << c.V() << '\n';
 
   file.close();
+}
+
+inline void run_Cell_SPM_spme(double Crate)
+{
+  run_Cell_SPM_2(Crate, true);
 }
 
 } // namespace slide::benchmarks

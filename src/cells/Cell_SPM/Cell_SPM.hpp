@@ -173,6 +173,12 @@ public:
   std::array<double, State_SPM::nce> getElectrolyteConcentrationProfile() const;
 
   // PUBLIC_INTERFACE
+  std::array<double, State_SPM::nce> getElectrolyteConcentrationDeviationProfile() const;
+
+  // PUBLIC_INTERFACE
+  std::array<double, State_SPM::nce> getElectrolyteDiagnosticVoltages() const;
+
+  // PUBLIC_INTERFACE
   void setSPMeParameters(const param::SPMeParam &spme_param);
 
   // PUBLIC_INTERFACE

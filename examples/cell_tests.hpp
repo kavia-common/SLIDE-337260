@@ -18,10 +18,29 @@
 
 namespace slide::examples {
 
-inline auto GITT_test()
+inline void write_spme_trace_row(std::ofstream &out, Cell_SPM &cell, double t_now)
+{
+  const auto ce = cell.getElectrolyteConcentrationProfile();
+  const auto ce_dev = cell.getElectrolyteConcentrationDeviationProfile();
+  const auto diagnostics = cell.getElectrolyteDiagnosticVoltages();
+
+  out << t_now << ',' << cell.I() << ',' << cell.V() << ',' << cell.SOC() << ',' << cell.T()
+      << ',' << (cell.isElectrolyteGradientModelEnabled() ? 1 : 0);
+
+  for (const auto value : ce)
+    out << ',' << value;
+  for (const auto value : ce_dev)
+    out << ',' << value;
+  for (const auto value : diagnostics)
+    out << ',' << value;
+
+  out << '\n';
+}
+
+inline auto GITT_test(bool enable_spme = false)
 {
   // Note: Entropic effect must be added!
-  std::string ID = "temp";
+  std::string ID = enable_spme ? "temp_spme" : "temp";
   Clock clk;
 
   // double Tref = 21.0_degC; // Temperature at which the characterisation should be done [K]
@@ -36,14 +55,16 @@ inline auto GITT_test()
   c.setBlockDegAndTherm(true);
   c.setT(21.0_degC);
 
-  double Cmaxpos{ 51385 };
-  double Cmaxneg{ 30555 };
-  double cps{}, cns{};
+  auto d = c; // Copy cell for discharge.
+
+  if (enable_spme) {
+    c.enableElectrolyteGradientModel(true);
+    d.enableElectrolyteGradientModel(true);
+  }
 
   auto &st = c.getStateObj();
   auto cyc = Cycler(&c, "charge");
 
-  auto d = c; // Copy cell for discharge.
   auto dcyc = Cycler(&d, "discharge");
 
   // Make cell empty!
@@ -54,33 +75,29 @@ inline auto GITT_test()
   dcyc.CCCV(1, 4.2, 0.0001, 1, 0, th);
   dcyc.rest(100, 1, 0, th);
 
-
   // Start GITT test 20x0.05C pulse and 2 hr rest:
   const auto N_repeat{ 20 };     // Repeat 20 times.
   const auto t_pulse = 1 * 3600; // 1 hr pulse time.
   const auto t_rest = 2 * 3600;  // 2 hr rest time.
-  const auto dt = 1;             // 1 seconds time step.
   const auto Crate = 0.05;
   auto current = Crate * c.Cap();
 
-  std::ofstream out_GITT{ PathVar::results / "GITT_20x0.05C_1h_rest_2h.csv" };
-  out_GITT << "Time [s],"
-           << "Current [A],"
-           << "Terminal voltage [V],"
-           << "Current [A],"
-           << "Terminal voltage [V]\n";
+  const auto out_name = enable_spme ? "GITT_20x0.05C_1h_rest_2h_spme.csv" : "GITT_20x0.05C_1h_rest_2h.csv";
+  std::ofstream out_GITT{ PathVar::results / out_name };
+  out_GITT << "Time [s],Current [A],Terminal voltage [V],SOC [-],Temperature [K],SPMe enabled [-],"
+           << "c_e_0 [mol m-3],c_e_1 [mol m-3],c_e_2 [mol m-3],"
+           << "dc_e_0 [mol m-3],dc_e_1 [mol m-3],dc_e_2 [mol m-3],"
+           << "electrolyte concentration span [mol m-3],electrolyte concentration avg deviation [mol m-3],electrolyte exchange factor deviation [-]\n";
 
   double t_all{};
-  out_GITT << t_all << ',' << c.I() << ',' << c.V() << ','
-           << d.I() << ',' << d.V() << '\n';
+  write_spme_trace_row(out_GITT, c, t_all);
 
   for (int i{}; i < N_repeat; i++) {
     c.setCurrent(-current);
     d.setCurrent(current);
 
-    for (int j{}; j < 3600; j++) {
-      out_GITT << t_all << ',' << c.I() << ',' << c.V() << ','
-               << d.I() << ',' << d.V() << '\n';
+    for (int j{}; j < t_pulse; j++) {
+      write_spme_trace_row(out_GITT, c, t_all);
 
       c.timeStep_CC(1, 1);
       d.timeStep_CC(1, 1);
@@ -91,9 +108,8 @@ inline auto GITT_test()
     c.setCurrent(0);
     d.setCurrent(0);
 
-    for (int j{}; j < 7200; j++) {
-      out_GITT << t_all << ',' << c.I() << ',' << c.V() << ','
-               << d.I() << ',' << d.V() << '\n';
+    for (int j{}; j < t_rest; j++) {
+      write_spme_trace_row(out_GITT, c, t_all);
 
       c.timeStep_CC(1, 1);
       d.timeStep_CC(1, 1);
@@ -102,6 +118,11 @@ inline auto GITT_test()
     }
   }
   out_GITT.close();
+}
+
+inline void GITT_test_spme()
+{
+  GITT_test(true);
 }
 
 } // namespace slide::examples

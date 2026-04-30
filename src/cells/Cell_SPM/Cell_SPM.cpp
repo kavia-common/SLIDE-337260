@@ -17,6 +17,7 @@
 #include <cmath>
 #include <array>
 #include <algorithm>
+#include <numeric>
 #include <utility>
 
 namespace slide {
@@ -437,6 +438,35 @@ void Cell_SPM::setElectrolyteGradientParameters(double electrolyte_diffusion, do
 std::array<double, State_SPM::nce> Cell_SPM::getElectrolyteConcentrationProfile() const
 {
   return calcElectrolyteConcentration();
+}
+
+// PUBLIC_INTERFACE
+std::array<double, State_SPM::nce> Cell_SPM::getElectrolyteConcentrationDeviationProfile() const
+{
+  std::array<double, State_SPM::nce> ce_dev{};
+  for (size_t i = 0; i < State_SPM::nce; i++)
+    ce_dev[i] = st.ce(i);
+
+  return ce_dev;
+}
+
+// PUBLIC_INTERFACE
+std::array<double, State_SPM::nce> Cell_SPM::getElectrolyteDiagnosticVoltages() const
+{
+  std::array<double, State_SPM::nce> diagnostics{};
+
+  if (!spme_config.enabled)
+    return diagnostics;
+
+  const auto ce = calcElectrolyteConcentration();
+  const auto ce_minmax = std::minmax_element(ce.begin(), ce.end());
+  const auto ce_avg = std::accumulate(ce.begin(), ce.end(), 0.0) / static_cast<double>(ce.size());
+
+  diagnostics[0] = *ce_minmax.second - *ce_minmax.first;
+  diagnostics[1] = ce_avg - C_elec;
+  diagnostics[2] = calcElectrolyteExchangeFactor() - 1.0;
+
+  return diagnostics;
 }
 
 // PUBLIC_INTERFACE
