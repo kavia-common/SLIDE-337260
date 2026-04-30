@@ -20,6 +20,40 @@ At the highest level, SLIDE is a command-line simulation program that loads mode
 
 The system boundary is the native executable plus its linked simulation library. External to the system are the human operator, the CMake toolchain, the CSV data files, and the optional MATLAB-based pre-processing and post-processing workflow.
 
+### 3.1 High-Level C4-Style System Diagram (Mermaid)
+
+The following diagram adds a higher-level C4-style view of the SLIDE system. It intentionally abstracts away individual classes and focuses instead on the main runtime system, the major internal capability groupings, and the external actors and file-based dependencies evidenced by `src/main.cpp`, `slide.hpp`, `CMakeLists.txt`, and the path definitions in `src/settings/slide_paths.hpp`.
+
+```mermaid
+flowchart LR
+  user["Researcher or developer"] --> build["CMake build and test toolchain"]
+  user --> matlab["MATLAB scripts and analysis workflow"]
+  user --> slide["SLIDE system"]
+  build --> slide
+
+  data["Repository data CSV files"] --> slide
+  slide --> results["Simulation result CSV files"]
+  results --> matlab
+
+  subgraph system_boundary["SLIDE system"]
+    cli["slide CLI executable"]
+    orchestration["Scenario and procedure orchestration"]
+    hierarchy["Battery and module hierarchy"]
+    models["Cell and electrochemical models"]
+    thermal["Thermal and power-conversion subsystems"]
+  end
+
+  cli --> orchestration
+  orchestration --> hierarchy
+  hierarchy --> models
+  hierarchy --> thermal
+  models --> data
+  orchestration --> results
+  hierarchy --> results
+```
+
+This diagram should be read from the outside in. The user builds and runs the `slide` executable, the executable orchestrates simulation procedures, those procedures operate on the battery hierarchy and cell models, and the entire system consumes repository CSV inputs and writes CSV outputs for downstream MATLAB-based analysis.
+
 ### 3.1 Context Diagram (Mermaid)
 
 The following diagram shows the executable at the center of the system context. The arrows indicate configuration, file inputs, and produced outputs.
