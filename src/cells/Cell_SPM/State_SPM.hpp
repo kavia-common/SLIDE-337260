@@ -73,11 +73,13 @@ public:
   inline auto &zn(size_t i) { return (*this)[i_zn + i]; } //!< z_type, transformed li concentration at the positive inner nodes of the negative particle
   inline auto &z(size_t i) { return (*this)[i_zp + i]; }  //!< Both z_p and z_n;
   inline auto &ce(size_t i) { return (*this)[i_ce + i]; } //!< ce_type, electrolyte concentration deviation states used only in SPMe mode
+  inline auto ce(size_t i) const { return (*this)[i_ce + i]; } //!< const access for electrolyte concentration deviation states used by diagnostics
 
   inline auto zp() { return std::span<double>(&zp(0), &zn(0)); }
   inline auto zn() { return std::span<double>(&zn(0), &zn(0) + nch); }
   inline auto z() { return std::span<double>(&zp(0), &zn(0) + nch); }
   inline auto ce() { return std::span<double>(&ce(0), &ce(0) + nce); }
+  inline auto ce() const { return std::span<const double>(&(*this)[i_ce], nce); }
 
 
   inline auto &T() { return (*this)[i_T]; }               //!< cell temperature [K]
