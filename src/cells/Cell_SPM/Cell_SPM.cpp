@@ -146,6 +146,29 @@ bool Cell_SPM::getCSurf(double &cps, double &cns, bool print)
   return flag;
 }
 
+std::array<double, State_SPM::nce> Cell_SPM::calcElectrolyteConcentration() const
+{
+  std::array<double, State_SPM::nce> ce{};
+  for (size_t i = 0; i < State_SPM::nce; i++)
+    ce[i] = C_elec + st.ce(i);
+
+  return ce;
+}
+
+double Cell_SPM::calcElectrolyteExchangeFactor() const
+{
+  if (!spme_config.enabled)
+    return 1.0;
+
+  const auto ce = calcElectrolyteConcentration();
+  double ce_avg = 0.0;
+  for (const auto ce_i : ce)
+    ce_avg += ce_i;
+
+  ce_avg /= static_cast<double>(ce.size());
+  return std::max(ce_avg, 1e-12) / C_elec;
+}
+
 void Cell_SPM::getC(double cp[], double cn[]) noexcept
 {
   /*
@@ -342,6 +365,8 @@ Cell_SPM::Cell_SPM() : Cell() //!< Default constructor
   constexpr double fn = 0.479283; //!< 0.479283 lithium fraction in the anode at 50% soc (3.68136 V) [-]
   setC(fp, fn);
   st.SOC() = 0.5; //!< Since fp and fn are set at 50%.
+  for (size_t i = 0; i < State_SPM::nce; i++)
+    st.ce(i) = 0.0;
 
   s_ini = st; //!< set the states, with a random value for the concentration
 
@@ -373,6 +398,32 @@ Status Cell_SPM::setStates(setStates_t s, bool checkV, bool print)
   }
 
   return status;
+}
+
+// PUBLIC_INTERFACE
+void Cell_SPM::enableElectrolyteGradientModel(bool enable)
+{
+  spme_config.enabled = enable;
+  Vcell_valid = false;
+}
+
+// PUBLIC_INTERFACE
+bool Cell_SPM::isElectrolyteGradientModelEnabled() const
+{
+  return spme_config.enabled;
+}
+
+// PUBLIC_INTERFACE
+void Cell_SPM::setElectrolyteGradientParameters(double electrolyte_diffusion, double coupling)
+{
+  spme_config.electrolyte_diffusion = electrolyte_diffusion;
+  spme_config.coupling = coupling;
+}
+
+// PUBLIC_INTERFACE
+std::array<double, State_SPM::nce> Cell_SPM::getElectrolyteConcentrationProfile() const
+{
+  return calcElectrolyteConcentration();
 }
 
 bool Cell_SPM::validStates(bool print)

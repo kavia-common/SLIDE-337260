@@ -49,6 +49,13 @@ protected:                 //!< protected such that child classes can access the
   double Cmaxneg{ 30555 }; //!< maximum lithium concentration in the anode [mol m-3] value for C
   double C_elec{ 1000 };   //!< Li- concentration in electrolyte [mol m-3] standard concentration of 1 molar
 
+  struct SPMeConfig
+  {
+    bool enabled{ false };                  //!< Enable electrolyte concentration gradients when true.
+    double electrolyte_diffusion{ 2.8e-10 }; //!< Effective electrolyte diffusion coefficient [m2 s-1].
+    double coupling{ 1.0 };                 //!< Scaling factor for the opt-in electrolyte source term [-].
+  };
+
   double n{ 1 }; //!< number of electrons involved in the main reaction [-] #TODO if really constant?
 
   //!< parameters of the main li-insertion reaction
@@ -112,10 +119,14 @@ protected:                 //!< protected such that child classes can access the
   OCVcurves OCV_curves;
 
   bool Vcell_valid{ false };
+  SPMeConfig spme_config{};
 
   //!< Functions
   std::pair<double, double> calcSurfaceConcentration(double jp, double jn, double Dpt, double Dnt);
   std::pair<double, double> calcOverPotential(double cps, double cns, double i_app); //!< Should not throw normally, except divide by zero?
+  std::array<double, State_SPM::nce> calcElectrolyteConcentration() const;
+  double calcElectrolyteExchangeFactor() const;
+  void dState_electrolyte(bool print, State_SPM &d_state);
 
   inline double calcArrheniusCoeff() { return (1 / T_ref - 1 / st.T()) / PhyConst::Rg; } //!< Calculates Arrhenius coefficient.
 
@@ -154,6 +165,18 @@ public:
   Cell_SPM(); //!< Default constructor.
 
   Cell_SPM(Model_SPM *M_ptr) : M(M_ptr) {}
+
+  // PUBLIC_INTERFACE
+  void enableElectrolyteGradientModel(bool enable = true);
+
+  // PUBLIC_INTERFACE
+  bool isElectrolyteGradientModelEnabled() const;
+
+  // PUBLIC_INTERFACE
+  void setElectrolyteGradientParameters(double electrolyte_diffusion, double coupling);
+
+  // PUBLIC_INTERFACE
+  std::array<double, State_SPM::nce> getElectrolyteConcentrationProfile() const;
 
   //!< getters
   double T() noexcept override { return st.T(); }   //!< returns the uniform battery temperature in [K]

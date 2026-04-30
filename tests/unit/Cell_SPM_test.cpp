@@ -246,6 +246,44 @@ bool test_timeStep_CC_SPM()
   return true;
 }
 
+bool test_spme_is_opt_in()
+{
+  Cell_SPM c1;
+  const auto base_voltage = c1.V();
+
+  assert(!c1.isElectrolyteGradientModelEnabled());
+
+  const auto ce = c1.getElectrolyteConcentrationProfile();
+  for (const auto ce_i : ce)
+    assert(NEAR(ce_i, 1000.0));
+
+  c1.enableElectrolyteGradientModel(true);
+  assert(c1.isElectrolyteGradientModelEnabled());
+  assert(NEAR(c1.V(), base_voltage, 1e-6));
+
+  return true;
+}
+
+bool test_spme_updates_electrolyte_profile_when_enabled()
+{
+  Cell_SPM c1;
+  c1.enableElectrolyteGradientModel(true);
+  c1.setElectrolyteGradientParameters(2.8e-10, 5.0);
+  c1.setCurrent(5.0);
+
+  const auto ce_before = c1.getElectrolyteConcentrationProfile();
+  c1.timeStep_CC(1.0);
+  const auto ce_after = c1.getElectrolyteConcentrationProfile();
+
+  bool changed = false;
+  for (size_t i = 0; i < ce_before.size(); i++)
+    changed = changed || !NEAR(ce_before[i], ce_after[i], 1e-12);
+
+  assert(changed);
+
+  return true;
+}
+
 int test_all_Cell_SPM()
 {
   //!< calls all test-functions
@@ -254,6 +292,8 @@ int test_all_Cell_SPM()
   if (!TEST(test_getV_SPM, "test_getV_SPM")) return 3;
   if (!TEST(test_setStates_SPM, "test_setStates_SPM")) return 4;
   if (!TEST(test_timeStep_CC_SPM, "test_timeStep_CC_SPM")) return 5;
+  if (!TEST(test_spme_is_opt_in, "test_spme_is_opt_in")) return 6;
+  if (!TEST(test_spme_updates_electrolyte_profile_when_enabled, "test_spme_updates_electrolyte_profile_when_enabled")) return 7;
 
   return 0;
 }

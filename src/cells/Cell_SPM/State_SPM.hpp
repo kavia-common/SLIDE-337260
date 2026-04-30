@@ -17,10 +17,11 @@
 #include <span>
 
 namespace slide {
-class State_SPM : public State<29> //!< #TODO how can we make this so it takes 29=N_states from enum?
+class State_SPM : public State<34> //!< #TODO how can we make this so it takes N_states from enum?
 {
 public:
   constexpr static auto nch = settings::nch;
+  constexpr static size_t nce = 3; //!< Number of optional electrolyte state nodes for the opt-in SPMe extension.
 
   enum Index : size_t //!< Index variables for:
   {
@@ -45,7 +46,8 @@ public:
     i_rDCn,              //!< (ONLY ANODE) specific resistance of both electrodes combined [Ohm m2]
     i_rDCcc,             //!< (ONLY SEPARATOR) specific resistance of both electrodes combined [Ohm m2]
     i_SOC,
-    N_states,
+    i_ce = i_SOC + 1, //!< optional electrolyte concentration deviation states for SPMe mode
+    N_states = i_ce + nce,
     N_save = i_zp //!< Save until i_zp
   };
 
@@ -61,6 +63,7 @@ public:
    */
 
   using z_type = std::array<value_type, nch>;
+  using ce_type = std::array<value_type, nce>;
   using states_type = std::array<value_type, N_states>;
 
   //!< State() = default; //!< Default constructor which DOESN'T initialise the states. All states are set to 0
@@ -69,10 +72,12 @@ public:
   inline auto &zp(size_t i) { return (*this)[i_zp + i]; } //!< z_type, transformed li concentration at the positive inner nodes of the positive particle
   inline auto &zn(size_t i) { return (*this)[i_zn + i]; } //!< z_type, transformed li concentration at the positive inner nodes of the negative particle
   inline auto &z(size_t i) { return (*this)[i_zp + i]; }  //!< Both z_p and z_n;
+  inline auto &ce(size_t i) { return (*this)[i_ce + i]; } //!< ce_type, electrolyte concentration deviation states used only in SPMe mode
 
   inline auto zp() { return std::span<double>(&zp(0), &zn(0)); }
   inline auto zn() { return std::span<double>(&zn(0), &zn(0) + nch); }
   inline auto z() { return std::span<double>(&zp(0), &zn(0) + nch); }
+  inline auto ce() { return std::span<double>(&ce(0), &ce(0) + nce); }
 
 
   inline auto &T() { return (*this)[i_T]; }               //!< cell temperature [K]
@@ -91,7 +96,7 @@ public:
   inline auto &rDCn() { return (*this)[i_rDCn]; }         //!< specific resistance (resistance times real surface area of the combined electrodes) [Ohm m2]
   inline auto &rDCcc() { return (*this)[i_rDCcc]; }       //!< specific resistance (resistance times real surface area of the combined electrodes) [Ohm m2]
   inline auto &delta_pl() { return (*this)[i_delta_pl]; } //!< thickness of the plated lithium layer [m]
-  inline auto &SOC() { return (*this)[i_SOC]; }           //!< thickness of the plated lithium layer [m]
+  inline auto &SOC() { return (*this)[i_SOC]; }           //!< state of charge [-]
   inline auto &I() { return (*this)[i_I]; }               //!< current [A]
   inline auto &V() { return (*this)[i_V]; }               //!< voltage [V]
 

@@ -51,7 +51,31 @@ void Cell_SPM::dState_diffusion(bool print, State_SPM &d_st)
   for (size_t j = 0; j < nch; j++)                            //!< A is diagonal, so the array M->A has only the diagonal elements
     d_st.zn(j) = (Dnt * M->An[j] * st.zn(j) + M->Bn[j] * jn); //!< dz/dt = D * A * z + B * j
 
+  dState_electrolyte(print, d_st);
   d_st.SOC() += -I() / (Cap() * 3600); //!< dSOC state of charge
+}
+
+void Cell_SPM::dState_electrolyte(bool print, State_SPM &d_state)
+{
+  if (!spme_config.enabled) {
+    for (size_t i = 0; i < State_SPM::nce; i++)
+      d_state.ce(i) = 0.0;
+    return;
+  }
+
+  const auto [i_app, jp, jn] = calcMolarFlux();
+  constexpr double relaxation_length = 1.0 / static_cast<double>(State_SPM::nce);
+  const double diffusion = spme_config.electrolyte_diffusion / (relaxation_length * relaxation_length);
+  const double source = spme_config.coupling * std::abs(i_app) / (PhyConst::F * std::max(C_elec, 1e-12));
+
+  for (size_t i = 0; i < State_SPM::nce; i++) {
+    const double left = i == 0 ? 0.0 : st.ce(i - 1);
+    const double center = st.ce(i);
+    const double right = i + 1 == State_SPM::nce ? 0.0 : st.ce(i + 1);
+    const double laplacian = left - 2.0 * center + right;
+    const double signed_source = (i == 1 ? -source : 0.5 * source);
+    d_state.ce(i) = diffusion * laplacian + signed_source;
+  }
 }
 
 void Cell_SPM::dState_thermal(bool print, double &dQgen)
@@ -284,6 +308,9 @@ void Cell_SPM::timeStep_CC(double dt, int nstep)
     //!< forward Euler time integration: s(t+1) = s(t) + ds/dt * dt
     for (size_t i = 0; i < (2 * st.nch); i++)
       st.z(i) += dt * d_st.z(i);
+
+    for (size_t i = 0; i < State_SPM::nce; i++)
+      st.ce(i) += dt * d_st.ce(i);
 
     st.SOC() += dt * d_st.SOC();
 

@@ -45,6 +45,7 @@ std::pair<double, double> Cell_SPM::calcOverPotential(double cps, double cns, do
   using namespace PhyConst;
 
   const auto ArrheniusCoeff = calcArrheniusCoeff();
+  const double electrolyte_exchange_factor = calcElectrolyteExchangeFactor();
 
   //!< Calculate the rate constants at the cell's temperature using an Arrhenius relation
   const double kpt = kp * std::exp(kp_T * ArrheniusCoeff); //!< Rate constant at the positive electrode at the cell's temperature [m s-1]
@@ -53,8 +54,8 @@ std::pair<double, double> Cell_SPM::calcOverPotential(double cps, double cns, do
   //!< Calculate the overpotential using the Bulter-Volmer equation
   //!< if alpha is 0.5, the Bulter-Volmer relation can be inverted to eta = 2RT / (nF) asinh(x)
   //!< and asinh(x) = ln(x + sqrt(1+x^2) -> to asinh(x) function.
-  const double i0p = kpt * n * F * std::sqrt(C_elec * cps * (Cmaxpos - cps)); //!< exchange current density of the positive electrode
-  const double i0n = knt * n * F * std::sqrt(C_elec * cns * (Cmaxneg - cns)); //!< exchange current density of the negative electrode
+  const double i0p = kpt * n * F * std::sqrt(C_elec * electrolyte_exchange_factor * cps * (Cmaxpos - cps)); //!< exchange current density of the positive electrode
+  const double i0n = knt * n * F * std::sqrt(C_elec * electrolyte_exchange_factor * cns * (Cmaxneg - cns)); //!< exchange current density of the negative electrode
   const double xp = -0.5 * i_app / (st.ap() * st.thickp()) / i0p;             //!< x for the cathode
   const double xn = 0.5 * i_app / (st.an() * st.thickn()) / i0n;              //!< x for the anode
   const double etap = (2 * Rg * st.T()) / (n * F) * std::asinh(xp);           //!< cathode overpotential [V], < 0 on discharge
